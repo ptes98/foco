@@ -21,6 +21,7 @@ let clockTimeout;
 let midnightTimeout;
 let tasks;
 let wasAway = false;
+let taskRequest = 0;
 
 function read(key) {
   if (temporaryStorage.has(key)) return temporaryStorage.get(key);
@@ -158,6 +159,7 @@ function leaveSession() {
 }
 
 async function startTask() {
+  const request = ++taskRequest;
   taskButton.disabled = true;
   error.hidden = true;
   try {
@@ -168,21 +170,26 @@ async function startTask() {
       if (!Array.isArray(data) || !data.length || data.some((title) => typeof title !== "string" || !title.trim())) {
         throw new Error("La lista de tareas no es válida");
       }
+      if (request !== taskRequest) return;
       tasks = data;
     }
     if (!currentSession) startSession("task", tasks[Math.floor(Math.random() * tasks.length)], 10);
   } catch {
-    if (!home.hidden) {
+    if (request === taskRequest && !home.hidden) {
       error.textContent = "No se pudieron cargar las tareas. Prueba otra vez.";
       error.hidden = false;
     }
   } finally {
-    taskButton.disabled = false;
+    if (request === taskRequest) taskButton.disabled = false;
   }
 }
 
 taskButton.addEventListener("click", startTask);
-restButton.addEventListener("click", () => startSession("rest", "Descanso sin móvil", 5));
+restButton.addEventListener("click", () => {
+  taskRequest += 1;
+  taskButton.disabled = false;
+  startSession("rest", "Descanso sin móvil", 5);
+});
 backButton.addEventListener("click", leaveSession);
 doneButton.addEventListener("click", () => {
   if (currentSession?.kind !== "task") return;
