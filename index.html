@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#132a22">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Foco</title>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="apple-touch-icon" href="./apple-touch-icon.png">
+  <link rel="icon" type="image/png" href="./icon-192.png">
+  <link rel="stylesheet" href="./style.css">
+  <script defer src="./app.js"></script>
+</head>
+<body>
+  <main id="inicio" class="screen home">
+    <div class="content">
+      <h1 id="titulo-inicio" tabindex="-1">¿A qué venías?</h1>
+      <div class="choices">
+        <a class="choice primary" href="https://app.notion.com/p/3e61025e0f5081069daac0f58a906fb0">Mi Hoy</a>
+        <button type="button" class="choice" id="tarea">10 min de algo físico</button>
+        <button type="button" class="choice" id="descanso">Descanso 5 min sin móvil</button>
+      </div>
+      <p id="error" class="feedback" role="status" hidden></p>
+      <dl class="stats">
+        <div><dt>Entradas hoy</dt><dd id="entradas-hoy">0</dd></div>
+        <div><dt>Hechas hoy</dt><dd id="hechas-hoy">0</dd></div>
+        <div><dt>Hechas esta semana</dt><dd id="hechas-semana">0</dd></div>
+      </dl>
+    </div>
+  </main>
+
+  <section id="sesion" class="screen session" aria-labelledby="titulo-sesion" hidden>
+    <div class="content">
+      <h1 id="titulo-sesion" tabindex="-1"></h1>
+      <p id="reloj" class="timer" role="timer"></p>
+      <p id="fin" class="feedback" role="status" aria-atomic="true"></p>
+      <button type="button" class="choice primary" id="hecho" hidden>Hecho</button>
+      <button type="button" class="back" id="volver">Volver</button>
+    </div>
+  </section>
+</body>
+</html>
