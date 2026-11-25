@@ -1,7 +1,7 @@
 const cachePrefix = 'foco:' + new URL(self.registration.scope).pathname + ':';
-const cacheName = cachePrefix + 'v1';
+const cacheName = cachePrefix + 'v2';
 const files = [
-  './', './index.html', './style.css', './app.js', './tareas.json',
+  './', './index.html', './style.css', './app.js', './tareas.json', './tarjetas.json',
   './manifest.webmanifest', './apple-touch-icon.png', './icon-192.png', './icon-512.png',
 ].map((file) => new URL(file, self.registration.scope).href);
 const cachedFiles = new Set(files);
@@ -9,7 +9,8 @@ const cachedFiles = new Set(files);
 self.addEventListener('install', (event) => {
   event.waitUntil((async () => {
     const cache = await caches.open(cacheName);
-    await cache.addAll(files);
+    // Copias frescas: no se aprovecha la caché HTTP de GitHub Pages al instalar una versión nueva.
+    await cache.addAll(files.map((file) => new Request(file, { cache: 'reload' })));
     await self.skipWaiting();
   })());
 });
@@ -26,25 +27,33 @@ self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   const url = new URL(event.request.url);
   url.search = '';
+  url.hash = '';
   if (cachedFiles.has(url.href)) {
-    event.respondWith(networkFirst(event.request, url.href));
+    event.respondWith(cacheFirst(event, url.href));
   }
 });
 
-async function networkFirst(request, key) {
-  try {
-    const response = await fetch(request);
+// Responde al momento con lo guardado y actualiza en segundo plano. Con mala cobertura no se espera a la red.
+async function cacheFirst(event, key) {
+  const cache = await caches.open(cacheName);
+  const cached = await cache.match(key);
+  const update = fetch(event.request).then(async (response) => {
     if (response.ok) {
       try {
-        const cache = await caches.open(cacheName);
         await cache.put(key, response.clone());
       } catch {
-        // A full or unavailable cache should not interrupt an online visit.
+        // Una caché llena no debe interrumpir la visita.
       }
     }
     return response;
+  });
+  if (cached) {
+    event.waitUntil(update.catch(() => {}));
+    return cached;
+  }
+  try {
+    return await update;
   } catch {
-    const cache = await caches.open(cacheName);
-    return (await cache.match(key)) || Response.error();
+    return Response.error();
   }
 }

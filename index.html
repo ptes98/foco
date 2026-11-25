@@ -14,11 +14,11 @@
   <script defer src="./app.js"></script>
 </head>
 <body>
-  <main id="inicio" class="screen home">
+  <main id="inicio" class="screen home" hidden>
     <div class="content">
       <h1 id="titulo-inicio" tabindex="-1">¿A qué venías?</h1>
       <div class="choices">
-        <a class="choice primary" href="https://app.notion.com/p/3e61025e0f5081069daac0f58a906fb0">Mi Hoy</a>
+        <a class="choice primary" id="mi-hoy" data-mi-hoy href="https://app.notion.com/p/3e61025e0f5081069daac0f58a906fb0">Mi Hoy</a>
         <button type="button" class="choice" id="tarea">10 min de algo físico</button>
         <button type="button" class="choice" id="descanso">Descanso 5 min sin móvil</button>
       </div>
@@ -27,7 +27,11 @@
         <div><dt>Entradas hoy</dt><dd id="entradas-hoy">0</dd></div>
         <div><dt>Hechas hoy</dt><dd id="hechas-hoy">0</dd></div>
         <div><dt>Hechas esta semana</dt><dd id="hechas-semana">0</dd></div>
+        <div><dt>Descansos hoy</dt><dd id="descansos-hoy">0</dd></div>
       </dl>
+      <div class="links end-only">
+        <button type="button" class="link" data-copiar>Copiar registro</button>
+      </div>
     </div>
   </main>
 
@@ -38,6 +42,72 @@
       <p id="fin" class="feedback" role="status" aria-atomic="true"></p>
       <button type="button" class="choice primary" id="hecho" hidden>Hecho</button>
       <button type="button" class="back" id="volver">Volver</button>
+    </div>
+  </section>
+
+  <section id="tarjeta" class="screen deck" aria-label="Tarjeta" hidden>
+    <div class="content">
+      <div class="topbar">
+        <span class="brand">Foco</span>
+        <span class="pill" id="pill-hechas">0 hechas hoy</span>
+      </div>
+      <div class="chips" id="contextos" role="group" aria-label="Dónde estás">
+        <button type="button" class="chip" data-ctx="Casa" aria-pressed="false">Casa</button>
+        <button type="button" class="chip" data-ctx="Taller" aria-pressed="false">Taller</button>
+        <button type="button" class="chip" data-ctx="Campo" aria-pressed="false">Campo</button>
+        <button type="button" class="chip" data-ctx="Cansado" aria-pressed="false">Cansado</button>
+      </div>
+      <div class="stack" id="pila">
+        <div class="ghost g2" id="fantasma-2" aria-hidden="true"></div>
+        <div class="ghost g1" id="fantasma-1" aria-hidden="true"></div>
+        <article class="card" id="carta">
+          <div class="face face-front">
+            <span class="badge" id="carta-min">1 min</span>
+            <h1 id="carta-texto" tabindex="-1"></h1>
+            <div class="card-foot">
+              <span class="dots" id="puntos" aria-hidden="true"></span>
+              <span class="hint" id="pista">Desliza para otra →</span>
+            </div>
+          </div>
+          <div class="face face-back" aria-hidden="true">
+            <svg class="check" width="76" height="76" viewBox="0 0 76 76" aria-hidden="true">
+              <circle cx="38" cy="38" r="35"/>
+              <path d="M22 39l11 11 21-24"/>
+            </svg>
+            <p class="done-title">Hecho</p>
+            <p class="done-text" id="carta-hecha"></p>
+          </div>
+        </article>
+        <div class="end" id="fin-mazo" hidden>
+          <h1 id="fin-mazo-titulo" tabindex="-1">Ya está: elige una o cierra.</h1>
+          <div class="end-list" id="lista-mazo"></div>
+        </div>
+      </div>
+      <div class="actions" id="acciones">
+        <button type="button" class="choice primary" id="hecho-tarjeta">Hecho</button>
+        <button type="button" class="choice" id="otra">Otra</button>
+      </div>
+      <div class="today" id="hoy" hidden>
+        <p class="today-label">Hoy</p>
+        <ul id="hoy-lista"></ul>
+        <p class="listo" role="status">Listo, puedes dejar el móvil.</p>
+      </div>
+      <div class="links">
+        <a data-mi-hoy href="https://app.notion.com/p/3e61025e0f5081069daac0f58a906fb0">Mi Hoy</a>
+        <button type="button" class="link" data-copiar>Copiar registro</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="pregunta" class="screen ask" aria-labelledby="pregunta-titulo" hidden>
+    <div class="content">
+      <p class="kicker">Antes de seguir</p>
+      <h1 id="pregunta-titulo" tabindex="-1"></h1>
+      <p id="pregunta-texto" class="feedback"></p>
+      <div class="choices two">
+        <button type="button" class="choice primary" id="si">Sí</button>
+        <button type="button" class="choice" id="no">No</button>
+      </div>
     </div>
   </section>
 </body>

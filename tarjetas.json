@@ -1,0 +1,14 @@
+[
+  { "id": "casa-recoger", "contexto": "Casa", "tipo": "Tarea", "texto": "Recoge 5 cosas que no estén en su sitio", "min": 1 },
+  { "id": "casa-ingles", "contexto": "Casa", "tipo": "Afición", "texto": "Di en voz alta, en inglés, tres frases sobre lo que has hecho hoy", "min": 1 },
+  { "id": "casa-ventilar", "contexto": "Casa", "tipo": "Descanso", "texto": "Ventila el salón y estírate de pie", "min": 1 },
+  { "id": "taller-tornillos", "contexto": "Taller", "tipo": "Tarea", "texto": "Saca 10 tornillos sueltos y sepáralos por medida", "min": 2 },
+  { "id": "taller-dron", "contexto": "Taller", "tipo": "Afición", "texto": "Abre el dron de juguete y mira cómo van conectados los motores y la batería", "min": 2 },
+  { "id": "taller-fuera", "contexto": "Taller", "tipo": "Descanso", "texto": "Siéntate fuera del taller sin pantalla", "min": 2 },
+  { "id": "campo-hierbas", "contexto": "Campo", "tipo": "Tarea", "texto": "Arranca 10 hierbas del bancal", "min": 2 },
+  { "id": "campo-vuelta", "contexto": "Campo", "tipo": "Afición", "texto": "Da una vuelta al cultivo y apunta una cosa que haya cambiado", "min": 2 },
+  { "id": "campo-mirar", "contexto": "Campo", "tipo": "Descanso", "texto": "Quédate mirando el campo", "min": 2 },
+  { "id": "cansado-cancion", "contexto": "Cansado", "tipo": "Descanso", "texto": "Pon una canción que te guste y escúchala entera sin mirar la pantalla", "min": 3 },
+  { "id": "cansado-tumbarse", "contexto": "Cansado", "tipo": "Descanso", "texto": "Túmbate con los ojos cerrados", "min": 2 },
+  { "id": "cansado-ropa", "contexto": "Cansado", "tipo": "Tarea", "texto": "Prepara la ropa de mañana", "min": 1 }
+]
