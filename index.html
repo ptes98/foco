@@ -49,14 +49,9 @@
     <div class="content">
       <div class="topbar">
         <span class="brand">Foco</span>
-        <span class="pill" id="pill-hechas">0 hechas hoy</span>
+        <button type="button" class="pill" id="pill-hechas" aria-label="Ver mi semana">0 hechas hoy</button>
       </div>
-      <div class="chips" id="contextos" role="group" aria-label="Dónde estás">
-        <button type="button" class="chip" data-ctx="Casa" aria-pressed="false">Casa</button>
-        <button type="button" class="chip" data-ctx="Taller" aria-pressed="false">Taller</button>
-        <button type="button" class="chip" data-ctx="Campo" aria-pressed="false">Campo</button>
-        <button type="button" class="chip" data-ctx="Cansado" aria-pressed="false">Cansado</button>
-      </div>
+      <div class="chips" id="contextos" role="group" aria-label="Dónde estás"></div>
       <div class="stack" id="pila">
         <div class="ghost g2" id="fantasma-2" aria-hidden="true"></div>
         <div class="ghost g1" id="fantasma-1" aria-hidden="true"></div>
@@ -90,12 +85,90 @@
       <div class="today" id="hoy" hidden>
         <p class="today-label">Hoy</p>
         <ul id="hoy-lista"></ul>
+        <p class="today-label wall-label">Esta semana</p>
+        <div class="wall compact" id="pared-mini" role="img"></div>
         <p class="listo" role="status">Listo, puedes dejar el móvil.</p>
       </div>
       <div class="links">
+        <button type="button" class="link" id="abrir-semana">Mi semana</button>
+        <button type="button" class="link" id="abrir-mis">Mis tarjetas</button>
         <a data-mi-hoy href="https://app.notion.com/p/3e61025e0f5081069daac0f58a906fb0">Mi Hoy</a>
         <button type="button" class="link" data-copiar>Copiar registro</button>
       </div>
+    </div>
+  </section>
+
+  <section id="config" class="screen setup" aria-labelledby="config-titulo" hidden>
+    <div class="content">
+      <p class="kicker" id="config-kicker">Primera vez · un minuto</p>
+      <h1 id="config-titulo" tabindex="-1">Hazlo tuyo</h1>
+      <div class="field">
+        <p class="field-label">¿Dónde sueles estar?</p>
+        <div class="chips" id="cfg-sitios" role="group" aria-label="Sitios"></div>
+        <div class="inline">
+          <input type="text" id="cfg-otro" maxlength="20" placeholder="Otro sitio" autocomplete="off" autocapitalize="sentences" aria-label="Otro sitio">
+          <button type="button" class="mini" id="cfg-otro-add">Añadir</button>
+        </div>
+      </div>
+      <div class="field" id="cfg-cansado-bloque">
+        <p class="field-label">Cuando estés cansado, ¿qué te vale?</p>
+        <div id="cfg-cansado"></div>
+      </div>
+      <div class="field">
+        <p class="field-label">Algo pequeño de tus aficiones <span>(una por línea)</span></p>
+        <textarea id="cfg-aficiones" rows="3" maxlength="600" placeholder="Ej.: Abrir el dron y mirar los motores" aria-label="Acciones pequeñas de tus aficiones"></textarea>
+        <div class="inline"><label for="cfg-aficion-sitio">En</label><select id="cfg-aficion-sitio"></select></div>
+      </div>
+      <button type="button" class="choice primary" id="cfg-listo">Empezar</button>
+      <button type="button" class="back" id="cfg-saltar">Saltar por ahora</button>
+    </div>
+  </section>
+
+  <section id="mis" class="screen mine" aria-labelledby="mis-titulo" hidden>
+    <div class="content">
+      <h1 id="mis-titulo" tabindex="-1">Mis tarjetas</h1>
+      <div class="field">
+        <label class="field-label" for="mis-texto">Una nueva</label>
+        <textarea id="mis-texto" rows="2" maxlength="160" placeholder="Algo que puedas hacer en 1–3 min"></textarea>
+        <div class="inline">
+          <select id="mis-sitio" aria-label="Sitio"></select>
+          <select id="mis-min" aria-label="Minutos">
+            <option value="1">1 min</option>
+            <option value="2" selected>2 min</option>
+            <option value="3">3 min</option>
+          </select>
+          <button type="button" class="mini primary" id="mis-anadir">Añadir</button>
+        </div>
+      </div>
+      <p id="mis-aviso" class="feedback" role="status" hidden></p>
+
+      <h2 class="sub">Tuyas (<span id="mis-n">0</span>)</h2>
+      <ul class="list" id="mis-lista"></ul>
+
+      <h2 class="sub">De ejemplo</h2>
+      <div id="mis-ejemplo"></div>
+
+      <h2 class="sub">Importar o copiar</h2>
+      <textarea id="mis-importar" rows="4" placeholder="Pega aquí: Sitio | min | texto, una por línea" aria-label="Tarjetas para importar"></textarea>
+      <div class="inline">
+        <button type="button" class="mini primary" id="mis-importar-ok">Importar</button>
+        <button type="button" class="mini" id="mis-copiar">Copiar las mías</button>
+      </div>
+
+      <div class="links">
+        <button type="button" class="link" id="mis-sitios">Cambiar sitios y descanso</button>
+        <button type="button" class="link" id="mis-volver">Volver</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="semana" class="screen week" aria-labelledby="semana-titulo" hidden>
+    <div class="content">
+      <h1 id="semana-titulo" tabindex="-1">Tu semana</h1>
+      <p id="semana-resumen" class="feedback"></p>
+      <div class="wall" id="pared" role="img"></div>
+      <div id="semana-lista"></div>
+      <button type="button" class="back" id="semana-volver">Volver</button>
     </div>
   </section>
 

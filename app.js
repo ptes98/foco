@@ -12,19 +12,29 @@ const visitsPrefix = `${prefix}visits:`;
 const restsPrefix = `${prefix}rests:`;
 const restDonePrefix = `${prefix}restdone:`;
 const donePrefix = `${prefix}done:`;
+const setupKey = `${prefix}setup`; // primera configuración y sitios elegidos
+const mineKey = `${prefix}mias`; // tarjetas propias: solo viven en este dispositivo
+const hiddenKey = `${prefix}ocultas`; // tarjetas de ejemplo que se han quitado
 
 const OPENING_GAP = 2 * 60_000; // volver tras 2 min o más fuera cuenta como apertura nueva
 const STALE_AFTER = 30 * 60_000; // sesión o tarjeta de hace más de 30 min: se pregunta
 const TAP_GUARD = 600; // ms en los que se ignoran toques tras cambiar de pantalla
 const LOG_DAYS = 21; // días que se guarda el registro (se pidieron al menos 14)
 const DECK_SIZE = 3; // tarjetas como mucho por apertura y contexto
-const CONTEXTS = ["Casa", "Taller", "Campo", "Cansado"];
+const DEFAULT_SITES = ["Casa", "Taller", "Campo"];
+const TIRED = "Cansado"; // siempre existe, con otras tarjetas
+const MAX_TEXT = 160;
+const MAX_MINE = 300;
+const DAY_NAMES = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
 
 const $ = (selector) => document.querySelector(selector);
 const screens = {
   inicio: $("#inicio"),
   sesion: $("#sesion"),
   tarjeta: $("#tarjeta"),
+  config: $("#config"),
+  mis: $("#mis"),
+  semana: $("#semana"),
   pregunta: $("#pregunta"),
 };
 const homeTitle = $("#titulo-inicio");
@@ -51,7 +61,7 @@ const anotherButton = $("#otra");
 const today = $("#hoy");
 const todayList = $("#hoy-lista");
 const pill = $("#pill-hechas");
-const chips = [...document.querySelectorAll("[data-ctx]")];
+const chipBox = $("#contextos");
 const ghosts = [$("#fantasma-1"), $("#fantasma-2")];
 const questionTitle = $("#pregunta-titulo");
 const questionText = $("#pregunta-texto");
@@ -73,6 +83,8 @@ let pending = null;
 let away = false;
 let coldPending = false;
 let drag = null;
+let poolChanged = false;
+let cfg = null;
 
 // ---------- Almacenamiento ----------
 
@@ -190,12 +202,10 @@ function pruneLog() {
   if (kept.length !== list.length) writeLog(kept);
 }
 
-async function copyLog(button) {
-  const payload = JSON.stringify({ app: "Foco", version: 2, exportado: localISO(Date.now()), eventos: readLog() });
-  let copied = false;
+async function copyText(payload) {
   try {
     await navigator.clipboard.writeText(payload);
-    copied = true;
+    return true;
   } catch {
     const area = document.createElement("textarea");
     area.value = payload;
@@ -204,18 +214,28 @@ async function copyLog(button) {
     document.body.append(area);
     area.select();
     area.setSelectionRange(0, payload.length);
+    let copied = false;
     try {
       copied = document.execCommand("copy");
     } catch {
       copied = false;
     }
     area.remove();
+    return copied;
   }
+}
+
+function flash(button, ok) {
   button.dataset.label ??= button.textContent;
-  button.textContent = copied ? "Copiado" : "No se pudo copiar";
+  button.textContent = ok ? "Copiado" : "No se pudo copiar";
   setTimeout(() => {
     button.textContent = button.dataset.label;
   }, 1600);
+}
+
+async function copyLog(button) {
+  const payload = JSON.stringify({ app: "Foco", version: 3, exportado: localISO(Date.now()), eventos: readLog() });
+  flash(button, await copyText(payload));
 }
 
 // ---------- Pantallas y toques ----------
@@ -435,18 +455,77 @@ function slug(text) {
     .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 48);
 }
 
+// ----- Sitios -----
+
+function cleanName(value) {
+  return typeof value === "string" ? value.replace(/\s+/g, " ").trim().slice(0, 20) : "";
+}
+
+function sameName(a, b) {
+  return a.localeCompare(b, "es", { sensitivity: "base" }) === 0;
+}
+
+function has(list, name) {
+  return list.some((item) => sameName(item, name));
+}
+
+function unique(list) {
+  const out = [];
+  for (const name of list) if (!has(out, name)) out.push(name);
+  return out;
+}
+
+function readSetup() {
+  const saved = readJSON(setupKey);
+  return saved && typeof saved === "object" && !Array.isArray(saved) ? saved : {};
+}
+
+function sites() {
+  const saved = readSetup().sitios;
+  const list = Array.isArray(saved) ? saved.map(cleanName).filter((name) => name && !sameName(name, TIRED)) : [];
+  return unique(list.length ? list : DEFAULT_SITES);
+}
+
+function contexts() {
+  return [...sites(), TIRED];
+}
+
+function canonContext(name) {
+  const clean = cleanName(name);
+  return clean ? contexts().find((known) => sameName(known, clean)) ?? clean : null;
+}
+
+function addSite(name) {
+  if (sameName(name, TIRED) || has(sites(), name)) return false;
+  writeJSON(setupKey, { ...readSetup(), sitios: [...sites(), name] });
+  return true;
+}
+
+// ----- Tarjetas de ejemplo (tarjetas.json), propias y ocultas -----
+
+function norm(text) {
+  return text.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function cleanCard(card) {
+  if (!card || typeof card.texto !== "string") return null;
+  const texto = card.texto.replace(/\s+/g, " ").trim().slice(0, MAX_TEXT);
+  const contexto = cleanName(card.contexto);
+  if (!texto || !contexto) return null;
+  const min = Number(card.min);
+  return {
+    id: typeof card.id === "string" && card.id.trim() ? card.id.trim().slice(0, 64) : slug(`${contexto}-${texto}`),
+    contexto,
+    tipo: typeof card.tipo === "string" ? card.tipo.slice(0, 20) : "",
+    texto,
+    min: Number.isFinite(min) && min > 0 ? Math.min(Math.round(min), 10) : 1,
+  };
+}
+
 function validateCards(data) {
   const list = Array.isArray(data) ? data : data?.tarjetas;
   if (!Array.isArray(list)) throw new Error("tarjetas.json no es una lista");
-  const valid = list
-    .filter((card) => card && typeof card.texto === "string" && card.texto.trim() && CONTEXTS.includes(card.contexto))
-    .map((card) => ({
-      id: typeof card.id === "string" && card.id.trim() ? card.id.trim() : slug(`${card.contexto}-${card.texto}`),
-      contexto: card.contexto,
-      tipo: typeof card.tipo === "string" ? card.tipo : "",
-      texto: card.texto.trim(),
-      min: Number.isFinite(card.min) && card.min > 0 ? card.min : 1,
-    }));
+  const valid = list.map(cleanCard).filter(Boolean);
   if (!valid.length) throw new Error("tarjetas.json no tiene tarjetas válidas");
   return valid;
 }
@@ -469,8 +548,85 @@ function loadCards() {
   return cardsPromise;
 }
 
+function mineCards() {
+  const list = readJSON(mineKey);
+  return Array.isArray(list) ? list.map(cleanCard).filter(Boolean) : [];
+}
+
+function hiddenIds() {
+  const list = readJSON(hiddenKey);
+  return new Set(Array.isArray(list) ? list.filter((id) => typeof id === "string") : []);
+}
+
+function allCards() {
+  return [...(cards ?? []), ...mineCards()];
+}
+
 function cardById(id) {
-  return cards?.find((card) => card.id === id) ?? null;
+  return allCards().find((card) => card.id === id) ?? null;
+}
+
+function playableCards(ctx) {
+  const hidden = hiddenIds();
+  return allCards().filter((card) => !hidden.has(card.id) && sameName(card.contexto, ctx));
+}
+
+// Añade tarjetas propias. Un sitio nuevo se crea solo. Devuelve cuántas entraron y cuántas se descartaron.
+function addMine(items) {
+  const list = mineCards();
+  const seen = new Set(list.map((card) => `${norm(card.contexto)}|${norm(card.texto)}`));
+  const newSites = [];
+  let added = 0;
+  let repeated = 0;
+  let invalid = 0;
+  for (const item of items) {
+    if (list.length >= MAX_MINE) break;
+    const card = cleanCard({ ...item, id: `m-${newId().slice(0, 8)}` });
+    if (!card) {
+      invalid += 1;
+      continue;
+    }
+    card.contexto = canonContext(card.contexto);
+    const key = `${norm(card.contexto)}|${norm(card.texto)}`;
+    if (seen.has(key)) {
+      repeated += 1;
+      continue;
+    }
+    seen.add(key);
+    if (!has(contexts(), card.contexto) && addSite(card.contexto)) newSites.push(card.contexto);
+    list.push(card);
+    added += 1;
+  }
+  if (added) {
+    writeJSON(mineKey, list);
+    poolChanged = true;
+  }
+  return { added, repeated, invalid, newSites };
+}
+
+// Texto pegado: una tarjeta por línea con «Sitio | min | texto», o un JSON con una lista.
+function parseImport(text) {
+  const raw = text.trim();
+  if (!raw) return [];
+  if (raw[0] === "[" || raw[0] === "{") {
+    const data = JSON.parse(raw);
+    const list = Array.isArray(data) ? data : data?.tarjetas;
+    return Array.isArray(list) ? list : [];
+  }
+  return raw
+    .split(/\r\n|[\r\n\u2028\u2029]/)
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith("#"))
+    .map((line) => {
+      const parts = line.split("|").map((part) => part.trim());
+      if (parts.length >= 3) return { contexto: parts[0], min: parseInt(parts[1], 10), texto: parts.slice(2).join(" | ") };
+      if (parts.length === 2) return { contexto: parts[0], texto: parts[1] };
+      return { contexto: lastContext(), texto: parts[0] };
+    });
+}
+
+function formatMine() {
+  return mineCards().map((card) => `${card.contexto} | ${card.min} | ${card.texto}`).join("\n");
 }
 
 function shuffle(list) {
@@ -483,13 +639,14 @@ function shuffle(list) {
 }
 
 function lastContext() {
+  const list = contexts();
   const saved = read(contextKey);
-  return CONTEXTS.includes(saved) ? saved : CONTEXTS[0];
+  return list.find((name) => saved && sameName(name, saved)) ?? list[0];
 }
 
 function loadDeck() {
   const saved = readJSON(deckKey);
-  if (!saved || typeof saved.id !== "string" || !CONTEXTS.includes(saved.ctx) || !Array.isArray(saved.order) ||
+  if (!saved || typeof saved.id !== "string" || typeof saved.ctx !== "string" || !Array.isArray(saved.order) ||
       !Number.isInteger(saved.pos) || !Number.isFinite(saved.shownAt)) return null;
   return saved;
 }
@@ -508,7 +665,7 @@ function deckCard() {
 }
 
 function newDeck(ctx) {
-  const pool = shuffle(cards.filter((card) => card.contexto === ctx)).slice(0, DECK_SIZE);
+  const pool = shuffle(playableCards(ctx)).slice(0, DECK_SIZE);
   deck = { id: newId(), ctx, order: pool.map((card) => card.id), pos: pool.length ? 0 : -1, shownAt: Date.now(), done: null };
   saveDeck();
 }
@@ -521,6 +678,10 @@ async function startDeck() {
     if (opening) opening.variant = "menu";
     saveOpening();
     showHome();
+    return;
+  }
+  if (!readSetup().hecho) {
+    showConfig({ first: true });
     return;
   }
   newDeck(lastContext());
@@ -543,6 +704,7 @@ function renderDots() {
 }
 
 function renderToday() {
+  paintWall($("#pared-mini"), { compact: true });
   const { doneToday } = paintStats();
   todayList.replaceChildren(...doneToday.slice(0, 6).map((record) => {
     const item = document.createElement("li");
@@ -555,11 +717,17 @@ function renderDeck({ enter = false, flip = false } = {}) {
   paintStats();
   const done = Boolean(deck.done);
   const ending = !done && deck.pos < 0;
-  for (const chip of chips) {
-    chip.setAttribute("aria-pressed", String(chip.dataset.ctx === deck.ctx));
+  chipBox.replaceChildren(...contexts().map((name) => {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "chip";
+    chip.dataset.ctx = name;
+    chip.textContent = name;
+    chip.setAttribute("aria-pressed", String(sameName(name, deck.ctx)));
     chip.disabled = done;
-  }
-  $("#contextos").hidden = done;
+    return chip;
+  }));
+  chipBox.hidden = done;
 
   const remaining = ending ? 0 : Math.max(0, deck.order.length - deck.pos - 1);
   ghosts[0].hidden = done || ending || remaining < 1;
@@ -571,6 +739,7 @@ function renderDeck({ enter = false, flip = false } = {}) {
   today.hidden = !done;
 
   if (ending) {
+    endTitle.textContent = deck.order.length ? "Ya está: elige una o cierra." : "No hay tarjetas aquí. Añade alguna en «Mis tarjetas».";
     endList.replaceChildren(...deck.order.map((id, index) => {
       const card = cardById(id);
       const button = document.createElement("button");
@@ -645,7 +814,7 @@ function chooseAgain(index) {
 }
 
 function changeContext(ctx) {
-  if (!deck || deck.done || !CONTEXTS.includes(ctx) || ctx === deck.ctx) return;
+  if (!deck || deck.done || !has(contexts(), ctx) || ctx === deck.ctx) return;
   write(contextKey, ctx);
   log("contexto", { ctx, s: secondsSince(deck.shownAt) });
   newDeck(ctx);
@@ -668,7 +837,10 @@ function finishCard() {
 
 deckDoneButton.addEventListener("click", finishCard);
 anotherButton.addEventListener("click", () => flyOut(-1, "boton"));
-for (const chip of chips) chip.addEventListener("click", () => changeContext(chip.dataset.ctx));
+chipBox.addEventListener("click", (event) => {
+  const chip = event.target.closest?.("[data-ctx]");
+  if (chip) changeContext(chip.dataset.ctx);
+});
 
 cardEl.addEventListener("pointerdown", (event) => {
   if (!deck || deck.done || deck.pos < 0 || cardEl.classList.contains("leaving")) return;
@@ -704,6 +876,374 @@ function endDrag(event) {
 
 cardEl.addEventListener("pointerup", endDrag);
 cardEl.addEventListener("pointercancel", endDrag);
+
+// ---------- Pared de la semana ----------
+
+function weekData() {
+  const now = new Date();
+  const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (now.getDay() + 6) % 7);
+  const days = DAY_NAMES.map((name, index) => {
+    const date = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + index);
+    return { key: dateKey(date), name, label: name[0], items: [] };
+  });
+  const previousStart = dateKey(new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() - 7));
+  let previous = 0;
+  for (const key of storedKeys()) {
+    if (!key?.startsWith(donePrefix)) continue;
+    const record = parseDone(read(key));
+    if (!record) continue;
+    const day = days.find((candidate) => candidate.key === record.d);
+    if (day) day.items.push(record);
+    else if (record.d >= previousStart && record.d < days[0].key) previous += 1;
+  }
+  for (const day of days) day.items.sort((a, b) => (a.at ?? 0) - (b.at ?? 0));
+  return { days, previous, total: days.reduce((sum, day) => sum + day.items.length, 0), todayKey: dateKey(now) };
+}
+
+// Una pared de ladrillos: cada «Hecho» pone uno en su día. Los de hace unos segundos entran con un pequeño salto.
+function paintWall(root, { compact = false } = {}) {
+  const week = weekData();
+  const rows = compact ? 5 : 10;
+  root.style.setProperty("--rows", String(rows));
+  root.setAttribute("aria-label", `Hechas esta semana: ${week.days.map((day) => `${day.name} ${day.items.length}`).join(", ")}`);
+  root.replaceChildren(...week.days.map((day) => {
+    const column = document.createElement("div");
+    column.className = day.key === week.todayKey ? "col today-col" : "col";
+    const more = document.createElement("span");
+    more.className = "more";
+    more.textContent = day.items.length > rows ? `+${day.items.length - rows}` : "";
+    const bricks = document.createElement("div");
+    bricks.className = "bricks";
+    for (const item of day.items.slice(-rows)) {
+      const brick = document.createElement("i");
+      if (Date.now() - (item.at ?? 0) < 15_000) brick.className = "new";
+      bricks.append(brick);
+    }
+    const label = document.createElement("span");
+    label.className = "lab";
+    label.textContent = day.label;
+    column.append(more, bricks, label);
+    return column;
+  }));
+}
+
+function showWeek() {
+  const week = weekData();
+  paintWall($("#pared"));
+  $("#semana-resumen").textContent =
+    `${week.total} ${week.total === 1 ? "hecha" : "hechas"} esta semana · semana pasada: ${week.previous}`;
+  const list = $("#semana-lista");
+  const groups = [...week.days].reverse().filter((day) => day.items.length).map((day) => {
+    const section = document.createElement("section");
+    const heading = document.createElement("h2");
+    heading.className = "sub";
+    heading.textContent = day.key === week.todayKey ? "Hoy" : day.name;
+    const items = document.createElement("ul");
+    items.className = "list plain";
+    for (const item of [...day.items].reverse()) {
+      const entry = document.createElement("li");
+      entry.textContent = item.t || "Tarea del menú";
+      items.append(entry);
+    }
+    section.append(heading, items);
+    return section;
+  });
+  if (!groups.length) {
+    const empty = document.createElement("p");
+    empty.className = "feedback";
+    empty.textContent = "Todavía no hay nada hecho esta semana.";
+    groups.push(empty);
+  }
+  list.replaceChildren(...groups);
+  show("semana", $("#semana-titulo"));
+  log("semana_ver", { n: week.total });
+}
+
+// ---------- Volver a la tarjeta desde los ajustes ----------
+
+function leaveToDeck() {
+  const stale = deck && !deck.done && !has(contexts(), deck.ctx);
+  if (!deck || stale || (poolChanged && !deck.done)) {
+    poolChanged = false;
+    clearDeck();
+    newDeck(lastContext());
+    show("tarjeta");
+    renderDeck({ enter: true });
+    logCardSeen();
+    return;
+  }
+  poolChanged = false;
+  show("tarjeta");
+  renderDeck();
+}
+
+// ---------- Primera vez y cambio de sitios ----------
+
+const cfgSites = $("#cfg-sitios");
+const cfgTired = $("#cfg-cansado");
+const cfgSiteSelect = $("#cfg-aficion-sitio");
+const cfgOther = $("#cfg-otro");
+
+function renderConfig() {
+  cfgSites.replaceChildren(...cfg.options.map((name) => {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "chip";
+    chip.dataset.site = name;
+    chip.textContent = name;
+    chip.setAttribute("aria-pressed", String(has(cfg.on, name)));
+    return chip;
+  }));
+  const chosen = cfg.options.filter((name) => has(cfg.on, name));
+  const previous = cfgSiteSelect.value;
+  cfgSiteSelect.replaceChildren(...(chosen.length ? chosen : DEFAULT_SITES).map((name) => new Option(name, name)));
+  if ([...cfgSiteSelect.options].some((option) => option.value === previous)) cfgSiteSelect.value = previous;
+}
+
+function renderTired() {
+  const hidden = hiddenIds();
+  const own = (cards ?? []).filter((card) => sameName(card.contexto, TIRED));
+  cfgTired.replaceChildren(...own.map((card) => {
+    const row = document.createElement("label");
+    row.className = "check-row";
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.value = card.id;
+    input.checked = !hidden.has(card.id);
+    const text = document.createElement("span");
+    text.textContent = card.texto;
+    row.append(input, text);
+    return row;
+  }));
+  $("#cfg-cansado-bloque").hidden = !own.length;
+}
+
+function showConfig({ first = false } = {}) {
+  cfg = { first, options: unique([...DEFAULT_SITES, ...sites()]), on: sites() };
+  $("#config-kicker").hidden = !first;
+  $("#cfg-listo").textContent = first ? "Empezar" : "Guardar";
+  $("#cfg-saltar").textContent = first ? "Saltar por ahora" : "Cancelar";
+  $("#cfg-aficiones").value = "";
+  cfgOther.value = "";
+  renderTired();
+  renderConfig();
+  show("config", $("#config-titulo"));
+  log("config_ver", { primera: first });
+}
+
+function addOtherSite() {
+  const name = cleanName(cfgOther.value);
+  cfgOther.value = "";
+  if (!name || sameName(name, TIRED)) return;
+  const known = cfg.options.find((option) => sameName(option, name));
+  if (!known) cfg.options.push(name);
+  const target = known ?? name;
+  if (!has(cfg.on, target)) cfg.on.push(target);
+  renderConfig();
+}
+
+function finishConfig(skip) {
+  if (!cfg) return;
+  const first = cfg.first;
+  let added = 0;
+  if (skip) {
+    if (first) writeJSON(setupKey, { ...readSetup(), hecho: true });
+  } else {
+    const chosen = cfg.options.filter((name) => has(cfg.on, name));
+    const next = chosen.length ? chosen : DEFAULT_SITES;
+    const hidden = hiddenIds();
+    for (const input of cfgTired.querySelectorAll("input")) {
+      if (input.checked) hidden.delete(input.value);
+      else hidden.add(input.value);
+    }
+    writeJSON(hiddenKey, [...hidden]);
+    writeJSON(setupKey, { ...readSetup(), hecho: true, sitios: next });
+    const place = cfgSiteSelect.value || next[0];
+    const lines = $("#cfg-aficiones").value.split(/\r\n|[\r\n\u2028\u2029]/).slice(0, 10);
+    added = addMine(lines.map((texto) => ({ contexto: place, tipo: "Afición", texto, min: 2 }))).added;
+    poolChanged = true;
+  }
+  log("config", { primera: first, saltada: skip, sitios: sites().length, propias: added });
+  cfg = null;
+  if (first) startDeck();
+  else leaveToDeck();
+}
+
+cfgSites.addEventListener("click", (event) => {
+  const chip = event.target.closest?.("[data-site]");
+  if (!chip || !cfg) return;
+  const name = chip.dataset.site;
+  if (has(cfg.on, name)) cfg.on = cfg.on.filter((other) => !sameName(other, name));
+  else cfg.on.push(name);
+  renderConfig();
+});
+$("#cfg-otro-add").addEventListener("click", addOtherSite);
+cfgOther.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    addOtherSite();
+  }
+});
+$("#cfg-listo").addEventListener("click", () => finishConfig(false));
+$("#cfg-saltar").addEventListener("click", () => finishConfig(true));
+
+// ---------- Mis tarjetas ----------
+
+const mineList = $("#mis-lista");
+const mineExamples = $("#mis-ejemplo");
+const mineNote = $("#mis-aviso");
+
+function note(text) {
+  mineNote.textContent = text;
+  mineNote.hidden = !text;
+}
+
+function renderMine() {
+  const select = $("#mis-sitio");
+  const list = contexts();
+  const keep = select.value || lastContext();
+  select.replaceChildren(...list.map((name) => new Option(name, name)));
+  select.value = list.find((name) => sameName(name, keep)) ?? list[0];
+
+  const mine = mineCards();
+  $("#mis-n").textContent = String(mine.length);
+  mineList.replaceChildren(...(mine.length ? mine : [null]).map((card) => {
+    const item = document.createElement("li");
+    if (!card) {
+      item.textContent = "Todavía no tienes ninguna.";
+      return item;
+    }
+    const body = document.createElement("span");
+    body.className = "item-body";
+    const text = document.createElement("span");
+    text.className = "item-text";
+    text.textContent = card.texto;
+    const meta = document.createElement("span");
+    meta.className = "item-meta";
+    meta.textContent = `${card.contexto} · ${card.min} min`;
+    body.append(text, meta);
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "mini";
+    remove.dataset.borrar = card.id;
+    remove.textContent = "Borrar";
+    item.append(body, remove);
+    return item;
+  }));
+
+  const hidden = hiddenIds();
+  mineExamples.replaceChildren(...(cards ?? []).map((card) => {
+    const row = document.createElement("label");
+    row.className = "check-row";
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.value = card.id;
+    input.checked = !hidden.has(card.id);
+    const text = document.createElement("span");
+    text.textContent = `${card.texto} (${card.contexto})`;
+    row.append(input, text);
+    return row;
+  }));
+}
+
+function showMine() {
+  note("");
+  renderMine();
+  show("mis", $("#mis-titulo"));
+  log("mis_ver", { propias: mineCards().length });
+}
+
+$("#mis-anadir").addEventListener("click", () => {
+  const area = $("#mis-texto");
+  const result = addMine([{
+    contexto: $("#mis-sitio").value,
+    min: Number($("#mis-min").value),
+    texto: area.value,
+    tipo: "Propia",
+  }]);
+  if (result.added) {
+    area.value = "";
+    note("Añadida.");
+    log("tarjeta_nueva", { origen: "mano" });
+  } else {
+    note(result.repeated ? "Ya la tienes." : "Escribe algo primero.");
+  }
+  renderMine();
+});
+
+$("#mis-importar-ok").addEventListener("click", () => {
+  const area = $("#mis-importar");
+  let items;
+  try {
+    items = parseImport(area.value);
+  } catch {
+    note("No he entendido el texto. Una tarjeta por línea: Sitio | min | texto.");
+    return;
+  }
+  if (!items.length) {
+    note("No hay nada que importar.");
+    return;
+  }
+  const result = addMine(items);
+  if (result.added) area.value = "";
+  const parts = [`${result.added} importadas`];
+  if (result.repeated) parts.push(`${result.repeated} repetidas ignoradas`);
+  if (result.invalid) parts.push(`${result.invalid} no válidas`);
+  if (result.newSites.length) parts.push(`sitios nuevos: ${result.newSites.join(", ")}`);
+  note(`${parts.join(" · ")}.`);
+  log("importar", { n: result.added, repetidas: result.repeated, no_validas: result.invalid });
+  renderMine();
+});
+
+$("#mis-copiar").addEventListener("click", async (event) => {
+  const button = event.currentTarget;
+  const text = formatMine();
+  if (!text) {
+    note("Todavía no tienes tarjetas propias que copiar.");
+    return;
+  }
+  flash(button, await copyText(text));
+});
+
+mineList.addEventListener("click", (event) => {
+  const button = event.target.closest?.("[data-borrar]");
+  if (!button) return;
+  if (button.dataset.armed !== "1") {
+    button.dataset.armed = "1";
+    button.textContent = "¿Seguro?";
+    setTimeout(() => {
+      if (button.isConnected) {
+        button.dataset.armed = "";
+        button.textContent = "Borrar";
+      }
+    }, 3000);
+    return;
+  }
+  writeJSON(mineKey, mineCards().filter((card) => card.id !== button.dataset.borrar));
+  poolChanged = true;
+  note("Borrada.");
+  renderMine();
+});
+
+mineExamples.addEventListener("change", (event) => {
+  const input = event.target.closest?.("input[type=checkbox]");
+  if (!input) return;
+  const hidden = hiddenIds();
+  if (input.checked) hidden.delete(input.value);
+  else hidden.add(input.value);
+  writeJSON(hiddenKey, [...hidden]);
+  poolChanged = true;
+});
+
+$("#mis-sitios").addEventListener("click", () => showConfig({ first: false }));
+$("#mis-volver").addEventListener("click", leaveToDeck);
+$("#abrir-mis").addEventListener("click", showMine);
+$("#abrir-semana").addEventListener("click", showWeek);
+$("#pill-hechas").addEventListener("click", showWeek);
+$("#semana-volver").addEventListener("click", () => {
+  show("tarjeta");
+  renderDeck();
+});
 
 // ---------- Pregunta por lo que quedó a medias ----------
 

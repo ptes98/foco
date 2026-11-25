@@ -1,5 +1,5 @@
 [
-  { "id": "casa-recoger", "contexto": "Casa", "tipo": "Tarea", "texto": "Recoge 5 cosas que no estén en su sitio", "min": 1 },
+  { "id": "casa-papelera", "contexto": "Casa", "tipo": "Tarea", "texto": "Vacía la papelera de la cocina y saca la bolsa", "min": 1 },
   { "id": "casa-ingles", "contexto": "Casa", "tipo": "Afición", "texto": "Di en voz alta, en inglés, tres frases sobre lo que has hecho hoy", "min": 1 },
   { "id": "casa-ventilar", "contexto": "Casa", "tipo": "Descanso", "texto": "Ventila el salón y estírate de pie", "min": 1 },
   { "id": "taller-tornillos", "contexto": "Taller", "tipo": "Tarea", "texto": "Saca 10 tornillos sueltos y sepáralos por medida", "min": 2 },
@@ -9,6 +9,9 @@
   { "id": "campo-vuelta", "contexto": "Campo", "tipo": "Afición", "texto": "Da una vuelta al cultivo y apunta una cosa que haya cambiado", "min": 2 },
   { "id": "campo-mirar", "contexto": "Campo", "tipo": "Descanso", "texto": "Quédate mirando el campo", "min": 2 },
   { "id": "cansado-cancion", "contexto": "Cansado", "tipo": "Descanso", "texto": "Pon una canción que te guste y escúchala entera sin mirar la pantalla", "min": 3 },
-  { "id": "cansado-tumbarse", "contexto": "Cansado", "tipo": "Descanso", "texto": "Túmbate con los ojos cerrados", "min": 2 },
-  { "id": "cansado-ropa", "contexto": "Cansado", "tipo": "Tarea", "texto": "Prepara la ropa de mañana", "min": 1 }
+  { "id": "cansado-ropa", "contexto": "Cansado", "tipo": "Tarea", "texto": "Prepara la ropa de mañana", "min": 1 },
+  { "id": "cansado-agua", "contexto": "Cansado", "tipo": "Descanso", "texto": "Bebe un vaso de agua de pie, sin móvil", "min": 1 },
+  { "id": "cansado-cielo", "contexto": "Cansado", "tipo": "Descanso", "texto": "Sal a la puerta y mira el cielo un minuto", "min": 1 },
+  { "id": "cansado-cara", "contexto": "Cansado", "tipo": "Descanso", "texto": "Lávate la cara con agua fría", "min": 1 },
+  { "id": "cansado-vaso", "contexto": "Cansado", "tipo": "Tarea", "texto": "Friega un vaso o una taza", "min": 1 }
 ]

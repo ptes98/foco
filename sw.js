@@ -1,5 +1,5 @@
 const cachePrefix = 'foco:' + new URL(self.registration.scope).pathname + ':';
-const cacheName = cachePrefix + 'v2';
+const cacheName = cachePrefix + 'v3';
 const files = [
   './', './index.html', './style.css', './app.js', './tareas.json', './tarjetas.json',
   './manifest.webmanifest', './apple-touch-icon.png', './icon-192.png', './icon-512.png',
